@@ -25,7 +25,7 @@ interface InvoiceAccount {
   bump: number;
 }
 
-const PROGRAM_ID = new PublicKey(idl.address);
+const PROGRAM_ID = "BD7NH19PHYwgpDDcAY5JAgNWByeVDYwHbTV5vpZv8VYJ";
 
 export default function Home() {
   const [invoices, setInvoices] = useState<{ publicKey: PublicKey; account: InvoiceAccount }[]>([]);
