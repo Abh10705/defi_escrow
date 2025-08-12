@@ -84,10 +84,12 @@ export default function Home() {
     try {
       const invoiceAmount = new BN(parseFloat(amount) * 10 ** 6);
       const dueDateBN = new BN(new Date(dueDate).getTime() / 1000);
+     /*
       const [invoicePDA] = PublicKey.findProgramAddressSync(
         [Buffer.from('invoice'), wallet.publicKey.toBuffer()],
         program.programId
       );
+      */
       await program.methods
         .initializeInvoice(invoiceAmount, dueDateBN)
         .accounts({
