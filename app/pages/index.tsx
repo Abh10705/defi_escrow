@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAnchorWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Program, AnchorProvider, BN, Idl } from '@coral-xyz/anchor';
-import { DefiEscrow } from '../../target/types/defi_escrow';
-import idl from '../../target/idl/defi_escrow.json';
+//import { DefiEscrow } from '../../target/types/defi_escrow';
+//import idl from '../../target/idl/defi_escrow.json';
+import { DefiEscrow } from '../lib/defi_escrow';
+import idl from '../lib/defi_escrow.json';
 import { PublicKey, TransactionInstruction } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
