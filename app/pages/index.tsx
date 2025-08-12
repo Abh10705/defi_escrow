@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAnchorWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Program, AnchorProvider, web3, BN, Idl } from '@coral-xyz/anchor';
+import { Program, AnchorProvider, BN, Idl } from '@coral-xyz/anchor';
 import { DefiEscrow } from '../../target/types/defi_escrow';
 import idl from '../../target/idl/defi_escrow.json';
 import { PublicKey, TransactionInstruction } from '@solana/web3.js';
 import {
   getAssociatedTokenAddress,
-  TOKEN_PROGRAM_ID,
+  
   createAssociatedTokenAccountInstruction,
   getAccount,
 } from '@solana/spl-token';
@@ -46,7 +46,25 @@ export default function Home() {
       setProgram(programInstance);
     }
   }, [wallet, connection]);
+  const fetchInvoices = useCallback(async () => {
+      if (!program) return;
+      try {
+          // Added proper interface as you suggested
+          interface FetchedInvoice {
+              publicKey: PublicKey;
+              account: unknown;
+          }
+          // Updated the function with proper typing
+          const fetchedInvoices: FetchedInvoice[] = await program.account.invoice.all();
+          setInvoices(fetchedInvoices.map(invoice => ({
+              publicKey: invoice.publicKey,
+              account: invoice.account as InvoiceAccount
+          })));
+      } catch (error) { console.error("Error fetching invoices:", error); }
+  }, [program]);
 
+ /*
+ 
   const fetchInvoices = useCallback(async () => {
     if (!program) return;
     try {
@@ -56,7 +74,7 @@ export default function Home() {
       console.error('Error fetching invoices:', error);
     }
   }, [program]);
-
+*/  
   useEffect(() => { if (program) fetchInvoices(); }, [program, fetchInvoices]);
 
   const initializeInvoice = async () => {
@@ -71,11 +89,19 @@ export default function Home() {
       await program.methods
         .initializeInvoice(invoiceAmount, dueDateBN)
         .accounts({
+          business: wallet.publicKey,                    
+            
+        })
+        .rpc();
+/*
+      await program.methods
+        .initializeInvoice(invoiceAmount, dueDateBN)
+        .accounts({
           invoice: invoicePDA,
           business: wallet.publicKey,
           systemProgram: web3.SystemProgram.programId,
         })
-        .rpc();
+        .rpc(); */
       console.log('Invoice created successfully!');
       await fetchInvoices();
     } catch (error) {
@@ -97,7 +123,7 @@ export default function Home() {
     try {
       await program.methods
         .listInvoice(MOCK_USDC_MINT, salePrice)
-        .accounts({ invoice: invoicePDA, business: wallet.publicKey })
+        .accounts({ invoice: invoicePDA })
         .rpc();
       console.log('Invoice listed!');
       fetchInvoices();
@@ -123,7 +149,7 @@ export default function Home() {
           investor: wallet.publicKey,
           investorTokenAccount: investorATA,
           businessTokenAccount: businessATA,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          
         })
         .preInstructions(preInstructions)
         .rpc();
@@ -139,7 +165,7 @@ export default function Home() {
     try {
       await program.methods
         .cancelInvoice()
-        .accounts({ invoice: invoicePDA, business: wallet.publicKey })
+        .accounts({ invoice: invoicePDA })
         .rpc();
       console.log('Invoice cancelled!');
       fetchInvoices();
@@ -157,10 +183,10 @@ export default function Home() {
         .repayInvestorAndClose()
         .accounts({
           invoice: invoicePDA,
-          business: wallet.publicKey,
+          
           investorTokenAccount: investorATA,
           businessTokenAccount: businessATA,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          
         })
         .rpc();
       console.log('Investor repaid!');
