@@ -2,7 +2,6 @@
 
 A foundational financial platform for Finternet, built on Solana
 
-This project is being developed as an entry for the Finternet Grants Program(https://earn.superteam.fun/listings/grants/finternet-grants-on-solana/),
 
 ## Vision
 
