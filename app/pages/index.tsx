@@ -15,7 +15,6 @@ import {
 } from '@solana/spl-token';
 import Image from 'next/image';
 
-// InvoiceAccount typing
 interface InvoiceAccount {
   business: PublicKey;
   investor: PublicKey;
@@ -23,11 +22,11 @@ interface InvoiceAccount {
   amount: BN;
   salePrice: BN;
   dueDate: BN;
-  status: Record<string, unknown>;
+  status: Record<string, unknown>; 
   bump: number;
 }
 
-const PROGRAM_ID = "BD7NH19PHYwgpDDcAY5JAgNWByeVDYwHbTV5vpZv8VYJ";
+//const PROGRAM_ID = "BD7NH19PHYwgpDDcAY5JAgNWByeVDYwHbTV5vpZv8VYJ";
 
 export default function Home() {
   const [invoices, setInvoices] = useState<{ publicKey: PublicKey; account: InvoiceAccount }[]>([]);
@@ -42,21 +41,22 @@ export default function Home() {
   useEffect(() => { setIsClient(true); }, []);
 
   useEffect(() => {
-    if (idl && PROGRAM_ID && wallet && connection) {
+    if (wallet) {
       const provider = new AnchorProvider(connection, wallet, { commitment: 'confirmed' });
       const programInstance = new Program<DefiEscrow>(idl as Idl, provider);
       setProgram(programInstance);
     }
   }, [wallet, connection]);
+
   const fetchInvoices = useCallback(async () => {
       if (!program) return;
       try {
-          // Added proper interface as you suggested
+          
           interface FetchedInvoice {
               publicKey: PublicKey;
               account: unknown;
           }
-          // Updated the function with proper typing
+          
           const fetchedInvoices: FetchedInvoice[] = await program.account.invoice.all();
           setInvoices(fetchedInvoices.map(invoice => ({
               publicKey: invoice.publicKey,
@@ -64,19 +64,6 @@ export default function Home() {
           })));
       } catch (error) { console.error("Error fetching invoices:", error); }
   }, [program]);
-
- /*
- 
-  const fetchInvoices = useCallback(async () => {
-    if (!program) return;
-    try {
-      const fetchedInvoices = await program.account.invoice.all();
-      setInvoices(fetchedInvoices as any);
-    } catch (error) {
-      console.error('Error fetching invoices:', error);
-    }
-  }, [program]);
-*/  
   useEffect(() => { if (program) fetchInvoices(); }, [program, fetchInvoices]);
 
   const initializeInvoice = async () => {
@@ -84,28 +71,18 @@ export default function Home() {
     try {
       const invoiceAmount = new BN(parseFloat(amount) * 10 ** 6);
       const dueDateBN = new BN(new Date(dueDate).getTime() / 1000);
-     /*
-      const [invoicePDA] = PublicKey.findProgramAddressSync(
+    /*  const [invoicePDA] = PublicKey.findProgramAddressSync(
         [Buffer.from('invoice'), wallet.publicKey.toBuffer()],
         program.programId
-      );
-      */
+      ); */
       await program.methods
         .initializeInvoice(invoiceAmount, dueDateBN)
         .accounts({
-          business: wallet.publicKey,                    
-            
+          //invoice: invoicePDA,
+          business: wallet.publicKey,
+          //systemProgram: web3.SystemProgram.programId,
         })
         .rpc();
-/*
-      await program.methods
-        .initializeInvoice(invoiceAmount, dueDateBN)
-        .accounts({
-          invoice: invoicePDA,
-          business: wallet.publicKey,
-          systemProgram: web3.SystemProgram.programId,
-        })
-        .rpc(); */
       console.log('Invoice created successfully!');
       await fetchInvoices();
     } catch (error) {
@@ -127,7 +104,7 @@ export default function Home() {
     try {
       await program.methods
         .listInvoice(MOCK_USDC_MINT, salePrice)
-        .accounts({ invoice: invoicePDA })
+        .accounts({ invoice: invoicePDA,  })
         .rpc();
       console.log('Invoice listed!');
       fetchInvoices();
@@ -153,7 +130,7 @@ export default function Home() {
           investor: wallet.publicKey,
           investorTokenAccount: investorATA,
           businessTokenAccount: businessATA,
-          
+          //tokenProgram: TOKEN_PROGRAM_ID,
         })
         .preInstructions(preInstructions)
         .rpc();
@@ -187,10 +164,10 @@ export default function Home() {
         .repayInvestorAndClose()
         .accounts({
           invoice: invoicePDA,
-          
+         // business: wallet.publicKey,
           investorTokenAccount: investorATA,
           businessTokenAccount: businessATA,
-          
+         // tokenProgram: TOKEN_PROGRAM_ID,
         })
         .rpc();
       console.log('Investor repaid!');
@@ -200,6 +177,24 @@ export default function Home() {
     }
   };
   
+  // New function for the time feature
+  const claimDefault = async (invoicePDA: PublicKey) => {
+    if (!program || !wallet) return;
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (program.methods as any).claim_default()
+            .accounts({ 
+                invoice: invoicePDA, 
+                investor: wallet.publicKey 
+            })
+            .rpc();
+        console.log("Invoice marked as defaulted successfully!");
+        fetchInvoices();
+    } catch (error) {
+        console.error("Error claiming default:", error);
+    }
+  };
+
     const styles = {
         container: { maxWidth: '1200px', margin: '0 auto', padding: '2rem' },
         header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4rem' },
@@ -218,6 +213,7 @@ export default function Home() {
         if ('pending' in status) return { color: '#000', background: '#ffc107' };
         if ('listed' in status) return { color: '#fff', background: '#007bff' };
         if ('sold' in status) return { color: '#fff', background: '#28a745' };
+        if ('defaulted' in status) return { color: '#fff', background: '#6f42c1' };
         return { color: '#fff', background: '#6c757d' };
     };
 
@@ -247,11 +243,13 @@ export default function Home() {
                         <div style={styles.invoiceGrid}>
                             {invoices.map(({ publicKey, account }) => {
                                 const isBusinessOwner = wallet && account.business.equals(wallet.publicKey);
+                                const isInvestorOwner = wallet && account.investor.equals(wallet.publicKey);
                                 const isSold = 'sold' in account.status;
                                 const isListed = 'listed' in account.status;
                                 const isPending = 'pending' in account.status;
                                 const statusKey = Object.keys(account.status)[0];
                                 const yieldAmount = (account.amount.toNumber() - account.salePrice.toNumber()) / 10**6;
+                                const isOverdue = new Date().getTime() / 1000 > account.dueDate.toNumber();
 
                                 return (
                                 <div key={publicKey.toBase58()} style={styles.invoiceCard}>
@@ -277,6 +275,8 @@ export default function Home() {
 
                                     <p style={{ margin: '1rem 0', fontSize: '12px', color: '#aaa' }}>
                                         <strong>Business:</strong> {account.business.toBase58()}
+                                        <br />
+                                        <strong>Due Date:</strong> {new Date(account.dueDate.toNumber() * 1000).toLocaleDateString()}
                                     </p>
                                     <div style={styles.buttonGroup}>
                                         {isBusinessOwner && isPending && (
@@ -290,6 +290,9 @@ export default function Home() {
                                         )}
                                         {isBusinessOwner && isSold && (
                                             <button onClick={() => repayInvestor(publicKey, account)} style={{ background: '#ffc107', color: 'black' }}>Repay Investor</button>
+                                        )}
+                                        {isInvestorOwner && isSold && isOverdue && (
+                                             <button onClick={() => claimDefault(publicKey)} style={{ background: '#6f42c1', color: 'white' }}>Claim Default</button>
                                         )}
                                     </div>
                                 </div>

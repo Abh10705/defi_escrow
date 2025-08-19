@@ -41,6 +41,33 @@ export type DefiEscrow = {
       "args": []
     },
     {
+      "name": "claimDefault",
+      "discriminator": [
+        12,
+        132,
+        209,
+        37,
+        163,
+        22,
+        128,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "invoice",
+          "writable": true
+        },
+        {
+          "name": "investor",
+          "signer": true,
+          "relations": [
+            "invoice"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initializeInvoice",
       "discriminator": [
         133,
@@ -241,12 +268,17 @@ export type DefiEscrow = {
     {
       "code": 6002,
       "name": "notSold",
-      "msg": "Invoice must be in the 'Sold' state to be repaid."
+      "msg": "Invoice must be in the 'Sold' state to be repaid or defaulted."
     },
     {
       "code": 6003,
       "name": "invalidSalePrice",
       "msg": "Sale price must be less than the invoice amount."
+    },
+    {
+      "code": 6004,
+      "name": "notYetDue",
+      "msg": "The invoice is not yet due for repayment."
     }
   ],
   "types": [
@@ -313,6 +345,9 @@ export type DefiEscrow = {
           },
           {
             "name": "cancelled"
+          },
+          {
+            "name": "defaulted"
           }
         ]
       }

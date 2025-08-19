@@ -12,7 +12,7 @@ defi_escrow = "BD7NH19PHYwgpDDcAY5JAgNWByeVDYwHbTV5vpZv8VYJ"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Devnet" # <--- This is the final, correct setting
+cluster = "devnet" 
 wallet = "/home/abhi/.config/solana/id.json"
 
 [scripts]

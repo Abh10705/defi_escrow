@@ -20,7 +20,6 @@ pub mod defi_escrow {
         invoice.sale_price = 0;
         invoice.due_date = due_date;
         invoice.status = InvoiceStatus::Pending;
-        // CORRECTED LINE:
         invoice.bump = ctx.bumps.invoice;
         Ok(())
     }
@@ -74,8 +73,26 @@ pub mod defi_escrow {
         )?;
         Ok(())
     }
+
+    // --- NEW FUNCTION ---
+    pub fn claim_default(ctx: Context<ClaimDefault>) -> Result<()> {
+        let invoice = &mut ctx.accounts.invoice;
+        let clock = Clock::get()?; // Get the current blockchain time
+
+        // Security check 1: Ensure the invoice was actually sold.
+        require!(invoice.status == InvoiceStatus::Sold, ErrorCode::NotSold);
+        
+        // Security check 2: Ensure the due date has passed.
+        require!(clock.unix_timestamp > invoice.due_date, ErrorCode::NotYetDue);
+
+        // If both checks pass, mark the invoice as defaulted.
+        invoice.status = InvoiceStatus::Defaulted;
+
+        Ok(())
+    }
 }
 
+// --- ALL CONTEXTS ---
 #[derive(Accounts)]
 pub struct InitializeInvoice<'info> {
     #[account(init, payer = business, space = 8 + 32 + 32 + 32 + 8 + 8 + 8 + 1 + 1, seeds = [b"invoice", business.key().as_ref()], bump)]
@@ -125,9 +142,25 @@ pub struct RepayInvestorAndClose<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+// --- NEW CONTEXT ---
+#[derive(Accounts)]
+pub struct ClaimDefault<'info> {
+    // Only the investor who purchased the invoice can claim a default.
+    #[account(mut, has_one = investor)]
+    pub invoice: Account<'info, Invoice>,
+    pub investor: Signer<'info>,
+}
+
+
+// --- STATE & ENUMS ---
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
 pub enum InvoiceStatus {
-    Pending, Listed, Sold, Repaid, Cancelled,
+    Pending,
+    Listed,
+    Sold,
+    Repaid,
+    Cancelled,
+    Defaulted, // <-- NEW STATUS
 }
 
 #[account]
@@ -142,14 +175,17 @@ pub struct Invoice {
     pub bump: u8,
 }
 
+// --- ERRORS ---
 #[error_code]
 pub enum ErrorCode {
     #[msg("Invoice is not listed for sale.")]
     NotListed,
     #[msg("Invoice has already been sold and cannot be cancelled.")]
     AlreadySold,
-    #[msg("Invoice must be in the 'Sold' state to be repaid.")]
+    #[msg("Invoice must be in the 'Sold' state to be repaid or defaulted.")]
     NotSold,
     #[msg("Sale price must be less than the invoice amount.")]
     InvalidSalePrice,
+    #[msg("The invoice is not yet due for repayment.")] // <-- NEW ERROR
+    NotYetDue,
 }

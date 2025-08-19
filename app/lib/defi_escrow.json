@@ -35,6 +35,33 @@
       "args": []
     },
     {
+      "name": "claim_default",
+      "discriminator": [
+        12,
+        132,
+        209,
+        37,
+        163,
+        22,
+        128,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "invoice",
+          "writable": true
+        },
+        {
+          "name": "investor",
+          "signer": true,
+          "relations": [
+            "invoice"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "initialize_invoice",
       "discriminator": [
         133,
@@ -235,12 +262,17 @@
     {
       "code": 6002,
       "name": "NotSold",
-      "msg": "Invoice must be in the 'Sold' state to be repaid."
+      "msg": "Invoice must be in the 'Sold' state to be repaid or defaulted."
     },
     {
       "code": 6003,
       "name": "InvalidSalePrice",
       "msg": "Sale price must be less than the invoice amount."
+    },
+    {
+      "code": 6004,
+      "name": "NotYetDue",
+      "msg": "The invoice is not yet due for repayment."
     }
   ],
   "types": [
@@ -307,6 +339,9 @@
           },
           {
             "name": "Cancelled"
+          },
+          {
+            "name": "Defaulted"
           }
         ]
       }

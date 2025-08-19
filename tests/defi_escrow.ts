@@ -19,6 +19,7 @@ import { assert } from "chai";
 describe("defi_escrow", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
+
   const program = anchor.workspace.DefiEscrow as Program<DefiEscrow>;
 
   const business = Keypair.generate();
@@ -34,70 +35,31 @@ describe("defi_escrow", () => {
   let investorTokenAccount: PublicKey;
 
   const invoiceAmount = new anchor.BN(100 * 10 ** 6); // 100 USDC
-  const salePrice = new anchor.BN(95 * 10 ** 6);      // 95 USDC
+  const salePrice = new anchor.BN(95 * 10 ** 6); // 95 USDC sale price
 
   before(async () => {
-    const minBalance = 0.5 * LAMPORTS_PER_SOL; // SOL threshold
-    const airdropAmount = 2 * LAMPORTS_PER_SOL;
-
-    // Fund business if needed
-    let businessBalance = await provider.connection.getBalance(business.publicKey);
-    console.log("Business wallet balance:", businessBalance / LAMPORTS_PER_SOL, "SOL");
-    if (businessBalance < minBalance) {
-      console.log("Airdropping to business wallet...");
-      const txSig = await provider.connection.requestAirdrop(business.publicKey, airdropAmount);
-      await provider.connection.confirmTransaction(txSig, "confirmed");
-    } else {
-      console.log("Business wallet has enough SOL, skipping airdrop.");
-    }
-
-    // Fund investor if needed
-    let investorBalance = await provider.connection.getBalance(investor.publicKey);
-    console.log("Investor wallet balance:", investorBalance / LAMPORTS_PER_SOL, "SOL");
-    if (investorBalance < minBalance) {
-      console.log("Airdropping to investor wallet...");
-      const txSig = await provider.connection.requestAirdrop(investor.publicKey, airdropAmount);
-      await provider.connection.confirmTransaction(txSig, "confirmed");
-    } else {
-      console.log("Investor wallet has enough SOL, skipping airdrop.");
-    }
-
-    // Create mint and token accounts
-    usdcMint = await createMint(
-      provider.connection,
-      business,
+    // Airdrop SOL to the business wallet and WAIT for it to be confirmed.
+    const businessAirdropSignature = await provider.connection.requestAirdrop(
       business.publicKey,
-      null,
-      6 // decimals
+      2 * LAMPORTS_PER_SOL
     );
+    await provider.connection.confirmTransaction(businessAirdropSignature, "confirmed");
 
-    investorTokenAccount = await createAssociatedTokenAccount(
-      provider.connection,
-      investor,
-      usdcMint,
-      investor.publicKey
+    // Airdrop SOL to the investor wallet and WAIT for it to be confirmed.
+    const investorAirdropSignature = await provider.connection.requestAirdrop(
+      investor.publicKey,
+      2 * LAMPORTS_PER_SOL
     );
+    await provider.connection.confirmTransaction(investorAirdropSignature, "confirmed");
 
-    businessTokenAccount = await createAssociatedTokenAccount(
-      provider.connection,
-      business,
-      usdcMint,
-      business.publicKey
-    );
-
-    // Mint tokens to investor
-    await mintTo(
-      provider.connection,
-      business,
-      usdcMint,
-      investorTokenAccount,
-      business,
-      200 * 10 ** 6
-    );
+    usdcMint = await createMint(provider.connection, business, business.publicKey, null, 6);
+    investorTokenAccount = await createAssociatedTokenAccount(provider.connection, investor, usdcMint, investor.publicKey);
+    businessTokenAccount = await createAssociatedTokenAccount(provider.connection, business, usdcMint, business.publicKey);
+    await mintTo(provider.connection, business, usdcMint, investorTokenAccount, business, 200 * 10 ** 6);
   });
 
   it("Should initialize an invoice", async () => {
-    const dueDate = new anchor.BN(Math.floor(Date.now() / 1000) + 3600);
+    const dueDate = new anchor.BN(Date.now() / 1000 + 3600);
     await program.methods
       .initializeInvoice(invoiceAmount, dueDate)
       .accounts({
@@ -107,12 +69,11 @@ describe("defi_escrow", () => {
       })
       .signers([business])
       .rpc();
-
     const invoiceAccount = await program.account.invoice.fetch(invoicePDA);
-    assert.deepEqual(invoiceAccount.status, { pending: {} });
+    assert.ok(invoiceAccount.status.pending);
   });
 
-  it("Should list the invoice for sale", async () => {
+  it("Should list an invoice for sale", async () => {
     await program.methods
       .listInvoice(usdcMint, salePrice)
       .accounts({
@@ -121,12 +82,11 @@ describe("defi_escrow", () => {
       })
       .signers([business])
       .rpc();
-
     const invoiceAccount = await program.account.invoice.fetch(invoicePDA);
-    assert.deepEqual(invoiceAccount.status, { listed: {} });
+    assert.ok(invoiceAccount.status.listed);
   });
 
-  it("Should purchase the invoice", async () => {
+  it("Should purchase an invoice", async () => {
     await program.methods
       .purchaseInvoice()
       .accounts({
@@ -138,22 +98,12 @@ describe("defi_escrow", () => {
       })
       .signers([investor])
       .rpc();
-
     const invoiceAccount = await program.account.invoice.fetch(invoicePDA);
-    assert.deepEqual(invoiceAccount.status, { sold: {} });
+    assert.ok(invoiceAccount.status.sold);
   });
 
-  it("Should repay investor and close invoice", async () => {
-    // Add tokens to business token account for repayment
-    await mintTo(
-      provider.connection,
-      business,
-      usdcMint,
-      businessTokenAccount,
-      business,
-      invoiceAmount.toNumber()
-    );
-
+  it("Should repay the investor and close the account", async () => {
+     await mintTo(provider.connection, business, usdcMint, businessTokenAccount, business, invoiceAmount.toNumber());
     await program.methods
       .repayInvestorAndClose()
       .accounts({
@@ -165,28 +115,14 @@ describe("defi_escrow", () => {
       })
       .signers([business])
       .rpc();
-
-    const investorAccountInfo = await getAccount(
-      provider.connection,
-      investorTokenAccount
-    );
-
-    const expectedBalance =
-      BigInt(200 * 10 ** 6) -
-      BigInt(salePrice.toNumber()) +
-      BigInt(invoiceAmount.toNumber());
-
-    assert.equal(
-      investorAccountInfo.amount.toString(),
-      expectedBalance.toString()
-    );
-
-    // Confirm invoice PDA is closed
+    const investorAccountInfo = await getAccount(provider.connection, investorTokenAccount);
+    const expectedInvestorBalance = (200 * 10 ** 6) - salePrice.toNumber() + invoiceAmount.toNumber();
+    assert.equal(investorAccountInfo.amount.toString(), expectedInvestorBalance.toString());
     try {
       await program.account.invoice.fetch(invoicePDA);
-      assert.fail("Invoice account should have been closed");
-    } catch (err: any) {
-      assert.include(err.message, "Account does not exist");
+      assert.fail("The invoice account should have been closed");
+    } catch (error) {
+      assert.include(error.message, "Account does not exist");
     }
   });
 });
