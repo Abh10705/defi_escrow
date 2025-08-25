@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAnchorWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Program, AnchorProvider, BN, Idl } from '@coral-xyz/anchor';
-//import { DefiEscrow } from '../../target/types/defi_escrow';
-//import idl from '../../target/idl/defi_escrow.json';
+
 import { DefiEscrow } from '../lib/defi_escrow';
 import idl from '../lib/defi_escrow.json';
 import { PublicKey, TransactionInstruction } from '@solana/web3.js';
@@ -25,8 +24,6 @@ interface InvoiceAccount {
   status: Record<string, unknown>; 
   bump: number;
 }
-
-//const PROGRAM_ID = "BD7NH19PHYwgpDDcAY5JAgNWByeVDYwHbTV5vpZv8VYJ";
 
 export default function Home() {
   const [invoices, setInvoices] = useState<{ publicKey: PublicKey; account: InvoiceAccount }[]>([]);
@@ -71,16 +68,13 @@ export default function Home() {
     try {
       const invoiceAmount = new BN(parseFloat(amount) * 10 ** 6);
       const dueDateBN = new BN(new Date(dueDate).getTime() / 1000);
-    /*  const [invoicePDA] = PublicKey.findProgramAddressSync(
-        [Buffer.from('invoice'), wallet.publicKey.toBuffer()],
-        program.programId
-      ); */
+    
       await program.methods
         .initializeInvoice(invoiceAmount, dueDateBN)
         .accounts({
-          //invoice: invoicePDA,
+          
           business: wallet.publicKey,
-          //systemProgram: web3.SystemProgram.programId,
+          
         })
         .rpc();
       console.log('Invoice created successfully!');
@@ -130,7 +124,7 @@ export default function Home() {
           investor: wallet.publicKey,
           investorTokenAccount: investorATA,
           businessTokenAccount: businessATA,
-          //tokenProgram: TOKEN_PROGRAM_ID,
+          
         })
         .preInstructions(preInstructions)
         .rpc();
@@ -164,10 +158,10 @@ export default function Home() {
         .repayInvestorAndClose()
         .accounts({
           invoice: invoicePDA,
-         // business: wallet.publicKey,
+         
           investorTokenAccount: investorATA,
           businessTokenAccount: businessATA,
-         // tokenProgram: TOKEN_PROGRAM_ID,
+         
         })
         .rpc();
       console.log('Investor repaid!');
@@ -177,7 +171,7 @@ export default function Home() {
     }
   };
   
-  // New function for the time feature
+  
   const claimDefault = async (invoicePDA: PublicKey) => {
     if (!program || !wallet) return;
     try {
@@ -206,8 +200,15 @@ export default function Home() {
         invoiceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '2rem' },
         invoiceCard: { background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '16px', padding: '1.5rem', display: 'flex', flexDirection: 'column' as const, gap: '1rem' },
         statusBadge: { padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', alignSelf: 'flex-start' },
-        buttonGroup: { marginTop: 'auto', display: 'flex', gap: '0.5rem' }
-    };
+        buttonGroup: { marginTop: 'auto', display: 'flex', gap: '0.5rem' },
+        footer: {
+            textAlign: 'center' as const,
+            marginTop: '4rem',
+            paddingTop: '2rem',
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            color: '#aaa',
+        }
+      };
     
     const getStatusStyle = (status: Record<string, unknown>) => {
         if ('pending' in status) return { color: '#000', background: '#ffc107' };
@@ -301,6 +302,19 @@ export default function Home() {
                     </div>
                 </main>
             )}
+            <footer style={styles.footer}>
+                
+                <p>
+                    Contact: defiescrow1@gmail.com |
+                    <a href="https://github.com/Abh10705/defi_escrow" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD600', marginLeft: '10px' }}>
+                        GitHub
+                    </a> |
+                    <a href="https://twitter.com/sasuke_98765" target="_blank" rel="noopener noreferrer" style={{ color: '#FFD600', marginLeft: '10px' }}>
+                        Twitter
+                    </a>
+                </p>
+             
+            </footer>
         </div>
     );
 }
